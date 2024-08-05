@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AC-Fan Sync Evaluator</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+    <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-6">Samsung SmartThings Energy | AC-Fan Sync Evaluator</h1>
+        <form action="/predict" method="post" class="space-y-4">
+            <div>
+                <label for="outdoor_temp" class="block text-sm font-medium text-gray-700">Outdoor Temperature (°C)</label>
+                <input type="number" step="0.01" id="outdoor_temp" name="outdoor_temp" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="humidity" class="block text-sm font-medium text-gray-700">Humidity (%)</label>
+                <input type="number" step="0.01" id="humidity" name="humidity" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="clo_level" class="block text-sm font-medium text-gray-700">Clothing Insulation Level</label>
+                <select id="clo_level" name="clo_level" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                    <option value="1">Light indoor clothing (0.5 clo)</option>
+                    <option value="2">Typical indoor clothing (1.0 clo)</option>
+                    <option value="3">Light pajamas (0.5 clo)</option>
+                    <option value="4">Warm pajamas (0.7 clo)</option>
+                    <option value="5">Bedsheet (0.2 clo)</option>
+                    <option value="6">Light blanket (0.5 clo)</option>
+                    <option value="7">Heavy blanket or quilt (1.0 clo)</option>
+                    <option value="8">Down comforter (1.5 clo)</option>
+                    <option value="9">Pajamas + Light blanket (1.2 clo)</option>
+                    <option value="10">Pajamas + Heavy blanket (1.5 clo)</option>
+                    <option value="11">Pajamas + Down comforter (2.0 clo)</option>
+                </select>
+            </div>
+            <div>
+                <label for="ac_tonnage" class="block text-sm font-medium text-gray-700">Tons of AC (1 ton = 3.5 kW)</label>
+                <input type="number" step="0.01" id="ac_tonnage" name="ac_tonnage" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="fan_speed" class="block text-sm font-medium text-gray-700">Fan Speed Setting (0-5)</label>
+                <input type="number" step="1" id="fan_speed" name="fan_speed" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="floor_length_ft" class="block text-sm font-medium text-gray-700">Floor Length (ft)</label>
+                <input type="number" step="0.01" id="floor_length_ft" name="floor_length_ft" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="floor_width_ft" class="block text-sm font-medium text-gray-700">Floor Width (ft)</label>
+                <input type="number" step="0.01" id="floor_width_ft" name="floor_width_ft" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="ceiling_height_ft" class="block text-sm font-medium text-gray-700">Ceiling Height (ft)</label>
+                <input type="number" step="0.01" id="ceiling_height_ft" name="ceiling_height_ft" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="num_windows" class="block text-sm font-medium text-gray-700">Number of Windows</label>
+                <input type="number" step="1" id="num_windows" name="num_windows" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="window_height_ft" class="block text-sm font-medium text-gray-700">Window Height (ft)</label>
+                <input type="number" step="0.01" id="window_height_ft" name="window_height_ft" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="window_width_ft" class="block text-sm font-medium text-gray-700">Window Width (ft)</label>
+                <input type="number" step="0.01" id="window_width_ft" name="window_width_ft" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="window_facing" class="block text-sm font-medium text-gray-700">Is the window facing North, South, East, or West?</label>
+                <input type="text" id="window_facing" name="window_facing" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <div>
+                <label for="curtains" class="block text-sm font-medium text-gray-700">Are curtains on? (yes/no)</label>
+                <input type="text" id="curtains" name="curtains" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+            </div>
+            <button type="submit" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded">Predict</button>
+        </form>
+        {% if prediction %}
+        <div class="mt-6 p-4 bg-green-100 rounded">
+            <h2 class="text-lg font-bold">Predicted Air Temperature</h2>
+            <p class="text-xl">{{ prediction }} °C</p>
+        </div>
+        <div class="mt-6 p-4 bg-green-100 rounded">
+            <h2 class="text-lg font-bold">AC Only</h2>
+            <p>Energy Consumption: {{ ac_energy }} kWh</p>
+            <p>Cooling Time: {{ ac_time }} hours</p>
+        </div>
+        <div class="mt-6 p-4 bg-green-100 rounded">
+            <h2 class="text-lg font-bold">AC + Fan</h2>
+            <p>Energy Consumption: {{ ac_fan_energy }} kWh</p>
+            <p>Cooling Time: {{ ac_fan_time }} hours</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
