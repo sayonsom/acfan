@@ -1,75 +1,74 @@
 import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from matplotlib.colors import LinearSegmentedColormap
 
-# Assuming the previously defined functions are available in the same environment:
-# - calculate_pmv
-# - optimize_feels_like_temperature
+# Read the CSV file
+df = pd.read_csv('thermal_comfort_data.csv')
+df['Time'] = pd.to_datetime(df['Time'], format='%H:%M')
 
-# Load the dataset
-file_path = '/mnt/data/file-RYm7ctBreEMbKkGacL5KPo9p'
-df = pd.read_csv(file_path)
+# Create a custom colormap for thermal comfort
+colors = ['blue', 'green', 'red']
+n_bins = 100
+cmap = LinearSegmentedColormap.from_list('thermal_comfort', colors, N=n_bins)
 
-# Initialize some default values for parameters
-clothing_insulation = 0.5  # clo, typical for light clothing
-metabolic_rate = 1.2  # met, example for light work
-max_air_velocity = 3.0  # m/s, maximum air velocity
+# Create the plot
+fig, axs = plt.subplots(3, 1, figsize=(12, 15), sharex=True)
+fig.suptitle('24-Hour Thermal Comfort and Physiological Data', fontsize=16, y=0.95)
 
-# Initialize lists to store the results
-adjusted_temps = []
-adjusted_humidities = []
-adjusted_air_velocities = []
-pmv_values = []
+# Plot 1: Temperature and AC Setpoint
+ax1 = axs[0]
+ax1.plot(df['Time'], df['Outdoor Temp'], label='Outdoor Temp', color='red')
+ax1.plot(df['Time'], df['AC_Setpoint'], label='AC Setpoint', color='blue')
+ax1.set_ylabel('Temperature (°C)')
+ax1.legend(loc='upper left')
+ax1.set_title('Temperature and AC Setpoint', pad=10)
 
-# Loop through the dataframe
-for i in range(len(df) - 1):
-    # Current conditions
-    current_temp = df.loc[i, 'SkinTemperature']
-    current_humidity = df.loc[i, 'Humidity(%)']
-    actual_temp = df.loc[i, 'Outside_Temperature(Celcius)']
-    
-    # Forecasted conditions (next row)
-    forecast_temp = df.loc[i + 1, 'Outside_Temperature(Celcius)']
-    forecast_humidity = df.loc[i + 1, 'Humidity(%)']
-    
-    # Desired PMV (close to 0) and optimized feels-like temperature (same as forecasted)
-    optimized_temp = actual_temp  # Here we're using the actual temp as a reference for the optimization
+# Add Air Velocity to the same plot with a secondary y-axis
+ax1_twin = ax1.twinx()
+ax1_twin.plot(df['Time'], df['Air Velocity'], label='Air Velocity', color='green', linestyle='--')
+ax1_twin.set_ylabel('Air Velocity (m/s)')
+ax1_twin.legend(loc='upper right')
 
-    # Optimize the air velocity to achieve the desired feels-like temperature
-    optimal_air_velocity, _ = optimize_feels_like_temperature(
-        actual_temp=actual_temp,
-        humidity=current_humidity,
-        metabolic_rate=metabolic_rate,
-        skin_temp=current_temp,
-        optimized_temp=optimized_temp,
-        max_air_velocity=max_air_velocity
-    )
-    
-    # Calculate the PMV with the optimized settings
-    pmv_value = calculate_pmv(
-        ta=actual_temp,
-        tr=actual_temp,  # Assuming mean radiant temp is same as air temp
-        rh=current_humidity,
-        met=metabolic_rate,
-        clo=clothing_insulation,
-        air_velocity=optimal_air_velocity
-    )
-    
-    # Adjust setpoint based on current and forecast data
-    adjusted_temps.append(optimized_temp)
-    adjusted_humidities.append(current_humidity)
-    adjusted_air_velocities.append(optimal_air_velocity)
-    pmv_values.append(pmv_value)
+# Plot 2: Energy Consumption
+ax2 = axs[1]
+ax2.plot(df['Time'], df['Energy Consumed_WithAirVelocityAdjustment'], 
+         label='With Air Velocity Adjustment', color='green')
+ax2.plot(df['Time'], df['EnergyConsumed_WithoutAirVelocity'], 
+         label='Without Air Velocity', color='orange')
+ax2.set_ylabel('Energy Consumed (units)')
+ax2.legend(loc='upper left')
+ax2.set_title('Energy Consumption Comparison', pad=10)
 
-# Create a DataFrame to store results
-results_df = pd.DataFrame({
-    'Time': df['HHMMSS'].iloc[:-1],
-    'Adjusted_Temperature': adjusted_temps,
-    'Adjusted_Humidity': adjusted_humidities,
-    'Adjusted_Air_Velocity': adjusted_air_velocities,
-    'PMV': pmv_values
-})
+# Plot 3: Physiological Data and Thermal Comfort
+ax3 = axs[2]
+sc = ax3.scatter(df['Time'], df['Heart Rate'], c=df['PMV_Thermal Comfort'], 
+                 cmap=cmap, s=30, label='Heart Rate')
+ax3.set_ylabel('Heart Rate (bpm)')
+ax3.set_title('Physiological Data and Thermal Comfort', pad=10)
 
-# Save results to a new CSV file
-results_file_path = '/mnt/data/adjusted_pmv_results.csv'
-results_df.to_csv(results_file_path, index=False)
+# Add Skin Temperature to the same plot with a secondary y-axis
+ax3_twin = ax3.twinx()
+ax3_twin.plot(df['Time'], df['Skin Temperature'], color='red', label='Skin Temperature')
+ax3_twin.set_ylabel('Skin Temperature (°C)')
 
-print(f"Results saved to {results_file_path}")
+# Combine legends
+lines1, labels1 = ax3.get_legend_handles_labels()
+lines2, labels2 = ax3_twin.get_legend_handles_labels()
+ax3.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+
+# Add colorbar for thermal comfort
+cbar = fig.colorbar(sc, ax=ax3, label='PMV Thermal Comfort')
+cbar.set_ticks([-3, -2, -1, 0, 1, 2, 3])
+cbar.set_ticklabels(['Cold', 'Cool', 'Slightly Cool', 'Neutral', 'Slightly Warm', 'Warm', 'Hot'])
+
+# Format x-axis to show hours
+for ax in axs:
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    ax.xaxis.set_major_locator(mdates.HourLocator(interval=3))
+    ax.grid(True, linestyle='--', alpha=0.7)
+
+plt.xlabel('Time of Day')
+plt.tight_layout()
+plt.subplots_adjust(top=0.92)  # Adjust the top margin
+plt.savefig('thermal_comfort_plot.png')
